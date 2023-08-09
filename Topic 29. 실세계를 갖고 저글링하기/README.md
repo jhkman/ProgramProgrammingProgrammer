@@ -92,5 +92,56 @@ Terminator.exit(99)
 감시자 패턴과 비교하자면 게시-구독 모델은 공통 인터페이스인 채널을 추상화함으로서 결합도를 줄인 멋진 사례라고 할수 있지만, 그래봤자 메시지 전달 시스템일 뿐이다.  
 
 ### 반응형 프로그래밍과 스트림 그리고 이벤트
+반응형 프로그래밍의 개념은 값이 바뀌면 그 값을 사용하는 다른 값이 반응하는(react) 것이다.  
+이런 데이터 수준의 반응형을 구현할수 있는 프레임워크로는 리액트(react), 뷰(vue.js)등이 있다.  
+이벤트를 사용하여 코드가 반응하도록 할수있다는것은 명백하지만 이벤트를 이리저리 연결하는 것도 쉽지는 않은데 그래서 스트림(stream)이 필요하다.  
+스트림은 이벤트를 일반적인 자료구조처럼 다룰수 있게 해준다.  
+이벤트의 리스트를 다루는 셈이라고 보면 되는데 새로운 이벤트가 도착하면 이 리스트가 길어지는 셈이다.  
+스트림은 또한 비동기 적으로 작동할 수도 있는데, 이벤트가 도착했을때 우리의 코드가 이벤트에 응답할 기회를 얻는다.  
+다음의 예제에서는 이를 구현한 자바스크립트용 라이브러리인 RxJS를 사용한다.  
+```RxJS
+import * as Obbservable from 'rxjs'
+import { logValues }    from "../rxcommon/logger.js"
 
-### 어디에나 이벤트가 있다
+let animals = Observable.of("ant", "bee", "cat", "dog", "elk")
+let ticker  = Observable.interval(500)
+
+let combined = Observable.zip(animals, ticker)
+
+combined.subscribe(next => logValues(JSON.stringify(next)))
+```
+첫번째 예제는 두개의 스트림을 받아 하나로 엮는데(zip), 그러면 결과로 새로운 스트림이 생기게 되고 첫번쨰 스트림에서 원소 하나, 
+두번째 스트림에서 원소 하나를 가져와서 하나로 묶은것이 새로운 스트림의 원소가 된다.  
+첫번째 스트림은 그냥 동물이름 다섯개이고, 두번째 스트림은 500ms마다 이벤트를 발생시키는 반복 타이머다.  
+두 스트림이 집(zip)으로 엮였기 때문에 둘 모두에 데이터가 있을 때만 엮인 스트림에 결과가 생기게 되는데, 즉 출력 스트림은 0.5초에 한번씩 결과를 내보낸다.  
+실행 결과를 보면
+![KakaoTalk_20230809_201957670](https://github.com/jhkman/ProgramProgrammingProgrammer/assets/50142323/9995e22d-8b65-4069-ba06-53d41e745dd5)
+정확히 500ms마다 하나씩 스트림에서 이벤트를 받고, 각 이벤트에는 주어진 동물이름과 반복타이머가 생성하는 일련번호가 들어있다.  
+일반적으로 이벤트 스트림은 이벤트가 발생할 때마다 채워지는데, 이말은 곧 이벤트를 발생시키는 감시대상들을 병렬적으로 실행시킬 수 있다는 것이다.  
+다음 예제는 원격 웹 API를 호출하여 가상의 3, 2, 1이라는 아이디인 사용자 정보를 가져올것이다.  
+```RxJS
+import * as Obbservable from 'rxjs'
+import { mergeMap }     from 'rxJs/operators'
+import { ajax }         from 'rxJs/ajax'
+import { logValues }    from "../rxcommon/logger.js"
+
+let users = Observable.of(3, 2, 1)
+let ticker  = Observable.interval(500)
+
+let result = users.pipe(
+  mergeMap((user) => ajax.getJSON('https://reqres.in/api/users/${user}'))
+)
+
+result.subscribe(
+  resp => logValues(JSON.stringigy(resp.data)),
+  err  => console.error(JSON.stringigy(err))
+)
+```
+코드의 내용은 중요치 않다. 결과를 보자
+![KakaoTalk_20230809_203043975](https://github.com/jhkman/ProgramProgrammingProgrammer/assets/50142323/c2aadf3a-8f58-4755-98b9-f4835f6e6b63)
+시간을 표시하는 부분을 눈여겨 보면, 세개의 요청 즉 세개의 개별 스트림이 병렬적으로 처리되었다.  
+첫번째는 아이디 2에대한것이 82ms만에 도착하고, 다른 둘은 각각 그후 50ms, 51ms 후 도착했다.
+
+#### 이벤트 스트림은 비동기 컬렉션
+첫번째 예제에서는 users에 담긴 사용자 아이디 목록은 고정되어 있었지만 꼭 그래야 하는 것은 아니다.  
+이벤트 스트림은 동기적 처리와 비동기적 처리를 하나의 편리한 공통 API로 감싸서 통합한다.
