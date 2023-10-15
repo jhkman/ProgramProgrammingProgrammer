@@ -100,7 +100,7 @@ def test_order_in_stock():
 
 def test_order_not_in_stock():
   wh = Warehouse({"신발": 10, "모자": 2, "우산": 0 })
-  status, item, quantity = order(wh, "모자", 1)
+  status, item, quantity = order(wh, "우산", 1)
   assert status == "재고 없음"
   assert item == "우산"
   assert quantity == 1
